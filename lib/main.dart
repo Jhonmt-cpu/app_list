@@ -20,8 +20,8 @@ class TodoList extends StatefulWidget {
 }
 
 class Todo {
-  String name;
-  String description;
+  String name = '';
+  String description = '';
 }
 
 class _TodoListState extends State<TodoList> {
@@ -60,6 +60,72 @@ class _TodoListState extends State<TodoList> {
     );
   }
 
+  void _pushAddTodo() {
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (BuildContext context) {
+      final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+      final form = Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Padding(
+              padding: EdgeInsets.all(16.0),
+              child: TextFormField(
+                decoration: InputDecoration(
+                  hintText: 'Insira o título da tarefa',
+                ),
+                validator: (String? value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Título obrigatório';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(16.0),
+              child: TextFormField(
+                minLines: 7,
+                maxLines: 7,
+                decoration: InputDecoration(
+                  hintText: 'Insira a descrição da tarefa',
+                ),
+                validator: (String? value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Descrição obrigatória';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    print(_formKey.currentState?.context);
+                  }
+                },
+                style: ButtonStyle(),
+                child: Text('Cadastrar'),
+              ),
+            )
+          ],
+        ),
+      );
+
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Adicionar tarefa'),
+        ),
+        body: form,
+      );
+    }));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,7 +134,9 @@ class _TodoListState extends State<TodoList> {
       ),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
-        onPressed: () {},
+        onPressed: () {
+          _pushAddTodo();
+        },
       ),
       body: _buildList(),
     );
