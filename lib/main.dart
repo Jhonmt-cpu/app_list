@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import 'package:uuid/uuid.dart';
 
 void main() => runApp(MyApp());
 
@@ -60,13 +59,18 @@ class _TodoListState extends State<TodoList> {
   Future<String> _getTodos() async {
     dio.options.baseUrl =
         "https://8zc8b4woh8.execute-api.us-east-2.amazonaws.com/staging";
+    // dio.options.baseUrl = "http://10.0.0.121:3001";
 
-    var response = await dio.get<List>('/todo');
-    var todosList = response.data.map((todo) {
-      return Todo.fromJson(todo);
-    }).toList();
-    _todos = todosList;
-    return response.data.toString();
+    try {
+      var response = await dio.get<List>('/todo');
+      var todosList = response.data.map((todo) {
+        return Todo.fromJson(todo);
+      }).toList();
+      _todos = todosList;
+      return response.data.toString();
+    } catch (e) {
+      return "error";
+    }
   }
 
   Future<Todo> _showTodo(String id) async {
@@ -78,16 +82,23 @@ class _TodoListState extends State<TodoList> {
     return todo;
   }
 
-  Future<void> _createTodo({String title, String description}) async {
+  Future<int> _createTodo({String title, String description}) async {
     dio.options.baseUrl =
         "https://8zc8b4woh8.execute-api.us-east-2.amazonaws.com/staging";
-    var response = await dio
-        .post("/todo", data: {"title": title, "description": description});
-    var todo = Todo.fromJson(response.data);
-    _todos.add(todo);
+    // dio.options.baseUrl = "http://10.0.0.121:3001";
+
+    try {
+      var response = await dio
+          .post("/todo", data: {"title": title, "description": description});
+      var todo = Todo.fromJson(response.data);
+      _todos.add(todo);
+      return response.statusCode;
+    } on DioError catch (e) {
+      return e.response.statusCode;
+    }
   }
 
-  Future<void> _updateTodo({
+  Future<int> _updateTodo({
     String title,
     String description,
     String id,
@@ -95,21 +106,39 @@ class _TodoListState extends State<TodoList> {
   }) async {
     dio.options.baseUrl =
         "https://8zc8b4woh8.execute-api.us-east-2.amazonaws.com/staging";
-    await dio.put(
-      "/todo",
-      data: {
-        "title": title,
-        "description": description,
-        "id": id,
-        "createdAt": createdAt,
-      },
-    );
+    // dio.options.baseUrl = "http://10.0.0.121:3001";
+    try {
+      var response = await dio.put(
+        "/todo",
+        data: {
+          "title": title,
+          "description": description,
+          "id": id,
+          "createdAt": createdAt,
+        },
+      );
+
+      return response.statusCode;
+    } on DioError catch (e) {
+      return e.response.statusCode;
+    }
   }
 
-  Future<void> _deleteTodo(String id) async {
+  Future<int> _deleteTodo(String id) async {
     dio.options.baseUrl =
         "https://8zc8b4woh8.execute-api.us-east-2.amazonaws.com/staging";
-    dio.delete("/todo/$id");
+    // dio.options.baseUrl = "http://10.0.0.121:3001";
+    try {
+      var response = await dio.delete("/todo/$id");
+      return response.statusCode;
+    } on DioError catch (e) {
+      return e.response.statusCode;
+    }
+  }
+
+  Future<void> _reloadPage() async {
+    setState(() {});
+    await Future.delayed(Duration(seconds: 4), () {});
   }
 
   void _pushAddTodo() {
@@ -128,6 +157,7 @@ class _TodoListState extends State<TodoList> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 TextFormField(
+                  textCapitalization: TextCapitalization.sentences,
                   decoration: (InputDecoration(
                     labelText: "Nome do Afazer",
                     icon: Icon(Icons.library_add),
@@ -163,14 +193,20 @@ class _TodoListState extends State<TodoList> {
                   onPressed: () async {
                     if (_formKey.currentState.validate()) {
                       _formKey.currentState.save();
-                      await _createTodo(
+                      var response = await _createTodo(
                           title: _todoTitle, description: _todoDescription);
-                      setState(() {});
 
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("$_todoTitle adicionada!"),
-                      ));
-                      Navigator.pop(context);
+                      if (response == 200) {
+                        setState(() {});
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text("$_todoTitle adicionada!"),
+                        ));
+                        Navigator.pop(context);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text("Afazer não salvo, tente mais tarde"),
+                        ));
+                      }
                     }
                   },
                   child: Text("Adicionar Afazer"),
@@ -190,9 +226,7 @@ class _TodoListState extends State<TodoList> {
     }));
   }
 
-  Future<void> _pushShowTodo(String id) async {
-    var todo = await _showTodo(id);
-
+  Future<void> _pushShowTodo(Todo todo) async {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (BuildContext coontext) {
@@ -253,6 +287,7 @@ class _TodoListState extends State<TodoList> {
               children: [
                 TextFormField(
                   initialValue: todo.title,
+                  textCapitalization: TextCapitalization.sentences,
                   decoration: (InputDecoration(
                     labelText: "Nome do Afazer",
                     icon: Icon(Icons.library_add),
@@ -284,19 +319,26 @@ class _TodoListState extends State<TodoList> {
                   onPressed: () async {
                     if (_formKey.currentState.validate()) {
                       _formKey.currentState.save();
-                      await _updateTodo(
+                      var responseStatus = await _updateTodo(
                         title: _todoTitle,
                         description: _todoDescription,
                         id: todo.id,
                         createdAt: todo.createdAt.toString(),
                       );
-                      setState(() {});
+                      if (responseStatus == 200) {
+                        setState(() {});
 
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text("$_todoTitle atualizado!"),
-                      ));
-                      Navigator.popUntil(context,
-                          (route) => Navigator.of(context).canPop() == false);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text("$_todoTitle atualizado!"),
+                        ));
+                        Navigator.popUntil(context,
+                            (route) => Navigator.of(context).canPop() == false);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content:
+                              Text("Afazer não atualizado! Tente novamente"),
+                        ));
+                      }
                     }
                   },
                   child: Text("Adicionar Afazer"),
@@ -322,24 +364,45 @@ class _TodoListState extends State<TodoList> {
       builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
         if (!snapshot.hasData) {
           return Center(
-            child: Text(
-              'Sua lista está vazia! Adicione alguns itens nela :)',
-              style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
-            ),
+            child: CircularProgressIndicator(),
           );
         } else {
-          return ListView.builder(
-            padding: EdgeInsets.all(16.0),
-            itemBuilder: (context, i) {
-              if (i < _todos.length) {
-                return Card(
-                  child: _buildRow(_todos[i]),
-                );
-              }
+          if (snapshot.data.toString() == "error") {
+            return Center(
+              child: Text(
+                'Eita, parece que ocorreu um erro ao trazer suas tarefas :( Tente novamente mais tarde',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+          } else if (snapshot.data.length == 2) {
+            return Center(
+              child: Text(
+                'Parece que você não tem afazeres cadastrados, adicione alguns :)',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
+              ),
+            );
+          } else {
+            return RefreshIndicator(
+              onRefresh: _reloadPage,
+              child: ListView.builder(
+                padding: EdgeInsets.all(16.0),
+                itemBuilder: (context, i) {
+                  if (i < _todos.length) {
+                    return Card(
+                      child: _buildRow(_todos[i]),
+                    );
+                  }
 
-              return null;
-            },
-          );
+                  return null;
+                },
+              ),
+            );
+          }
         }
       },
     );
@@ -351,7 +414,7 @@ class _TodoListState extends State<TodoList> {
         todo.title,
         style: _biggerFont,
       ),
-      onTap: () => _pushShowTodo(todo.id),
+      onTap: () => _pushShowTodo(todo),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -361,17 +424,25 @@ class _TodoListState extends State<TodoList> {
               color: Colors.red,
             ),
             onPressed: () async {
-              await _deleteTodo(todo.id);
-              setState(
-                () {
-                  _todos.remove(todo);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("${todo.title} removida"),
-                    ),
-                  );
-                },
-              );
+              var responseStatus = await _deleteTodo(todo.id);
+              if (responseStatus == 200) {
+                setState(
+                  () {
+                    _todos.remove(todo);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("${todo.title} removida"),
+                      ),
+                    );
+                  },
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Erro ao deletar o afazer, tente novamente"),
+                  ),
+                );
+              }
             },
           ),
         ],
